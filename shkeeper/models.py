@@ -13,6 +13,7 @@ from flask import current_app as app
 from shkeeper import db
 from shkeeper.modules.rates import RateSource
 from shkeeper.modules.classes.crypto import Crypto
+from shkeeper.modules.rates.transferra import TransferraRateSource
 from .utils import format_decimal, remove_exponent
 from .exceptions import NotRelatedToAnyInvoice
 
@@ -388,26 +389,46 @@ class Invoice(db.Model):
             callback_url=request["callback_url"], 
             fiat=request["fiat"]
         ).first()
+
+        transferra = TransferraRateSource()
+        fee_to_rate = 1
+        for rate in request["exch_rates"]:
+            fee_to_rate *= (1 - Decimal(rate))
+
         if invoice:
             # updating existing invoice
             invoice.fiat = request["fiat"]
             invoice.amount_fiat = Decimal(request["amount"])
 
             # recalc crypto amount for the new fiat amount
-            rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
-            invoice.amount_crypto, invoice.exchange_rate = rate.convert(
-                invoice.amount_fiat
-            )
+            base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
+            effective_rate = base_rate * fee_to_rate
+            invoice.exchange_rate = effective_rate
+
+            converted = (invoice.amount_fiat / effective_rate)
+            invoice.amount_crypto = round(converted, 8)
+
+            # rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
+            # invoice.amount_crypto, invoice.exchange_rate = rate.convert(
+            #     invoice.amount_fiat
+            # )
 
             crypto_changed = invoice.crypto != crypto.crypto
             if crypto_changed or crypto_is_lightning:
                 invoice.crypto = crypto.crypto
 
                 # recalc crypto amount for the new crypto and fiat amount
-                rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
-                invoice.amount_crypto, invoice.exchange_rate = rate.convert(
-                    invoice.amount_fiat
-                )
+                base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
+                effective_rate = base_rate * fee_to_rate
+                invoice.exchange_rate = effective_rate
+
+                converted = (invoice.amount_fiat / effective_rate)
+                invoice.amount_crypto = round(converted, 8)
+
+                # rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
+                # invoice.amount_crypto, invoice.exchange_rate = rate.convert(
+                #     invoice.amount_fiat
+                # )
 
                 # if address for new crypto already exist, use it instead of generating a new one
                 invoice_address = InvoiceAddress.query.filter_by(
@@ -434,10 +455,19 @@ class Invoice(db.Model):
             invoice.callback_url = request["callback_url"]
             invoice.fiat = request["fiat"]
             invoice.amount_fiat = Decimal(request["amount"])
-            rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
-            invoice.amount_crypto, invoice.exchange_rate = rate.convert(
-                invoice.amount_fiat
-            )
+
+            # rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
+            # invoice.amount_crypto, invoice.exchange_rate = rate.convert(
+            #     invoice.amount_fiat
+            # )
+
+            base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
+            effective_rate = base_rate * fee_to_rate
+            invoice.exchange_rate = effective_rate
+
+            converted = (invoice.amount_fiat / effective_rate)
+            invoice.amount_crypto = round(converted, 8)
+
             invoice.addr = crypto.mkaddr(details={"value": invoice.amount_crypto})
             db.session.add(invoice)
             db.session.commit()
@@ -472,7 +502,7 @@ class Invoice(db.Model):
                 )
 
         db.session.commit()
-        return invoice
+        return invoice, base_rate
 
     def for_response(self):
         res = {
