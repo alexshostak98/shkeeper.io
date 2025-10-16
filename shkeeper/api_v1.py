@@ -119,9 +119,10 @@ def payment_request(crypto_name):
             }
 
         req = request.get_json(force=True)
-        invoice = Invoice.add(crypto=crypto, request=req)
+        invoice, base_rate = Invoice.add(crypto=crypto, request=req)
         response = {
             "status": "success",
+            "base_rate": base_rate,
             **invoice.for_response(),
         }
         app.logger.info({"request": req, "response": response})
