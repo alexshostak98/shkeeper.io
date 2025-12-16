@@ -397,10 +397,10 @@ class Invoice(db.Model):
 
             # recalc crypto amount for the new fiat amount
             base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
-            effective_rate = base_rate / (1 + exch_rate)
+            effective_rate = base_rate / (1 - exch_rate)
             invoice.exchange_rate = effective_rate
 
-            converted = (invoice.amount_fiat  / effective_rate)
+            converted = (invoice.amount_fiat  * effective_rate)
             invoice.amount_crypto = round(converted, 8)
 
             # rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
@@ -414,10 +414,10 @@ class Invoice(db.Model):
 
                 # recalc crypto amount for the new crypto and fiat amount
                 base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
-                effective_rate = base_rate / (1 + exch_rate)
+                effective_rate = base_rate / (1 - exch_rate)
                 invoice.exchange_rate = effective_rate
 
-                converted = (invoice.amount_fiat / effective_rate)
+                converted = (invoice.amount_fiat * effective_rate)
                 invoice.amount_crypto = round(converted, 8)
 
                 # rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
@@ -457,10 +457,10 @@ class Invoice(db.Model):
             # )
 
             base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
-            effective_rate = base_rate / (1 + exch_rate)
+            effective_rate = base_rate / (1 - exch_rate)
             invoice.exchange_rate = effective_rate
 
-            converted = (invoice.amount_fiat  / effective_rate)
+            converted = (invoice.amount_fiat * effective_rate)
             invoice.amount_crypto = round(converted, 8)
 
             invoice.addr = crypto.mkaddr(details={"value": invoice.amount_crypto})

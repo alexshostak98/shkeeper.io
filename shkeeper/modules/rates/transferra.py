@@ -29,7 +29,7 @@ class TransferraRateSource(RateSource):
         if crypto in self.BTC_CRYPTOS:
             crypto = "BTC"
 
-        rate_url = f"{self.url}?from={crypto}&to={fiat}"
+        rate_url = f"{self.url}?from={fiat}&to={crypto}"
 
         headers = {
             "Authorization": f"Bearer {self.token}",
