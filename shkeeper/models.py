@@ -387,8 +387,9 @@ class Invoice(db.Model):
         ).first()
 
         transferra = TransferraRateSource()
-        exch_rate = Decimal(request["exch_rate"])
-
+        fee_to_rate = 1
+        for rate in request["exch_rates"]:
+            fee_to_rate *= (1 - Decimal(rate))
 
         if invoice:
             # updating existing invoice
@@ -397,10 +398,10 @@ class Invoice(db.Model):
 
             # recalc crypto amount for the new fiat amount
             base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
-            effective_rate = base_rate / (1 - exch_rate)
+            effective_rate = base_rate * fee_to_rate
             invoice.exchange_rate = effective_rate
 
-            converted = (invoice.amount_fiat  * effective_rate)
+            converted = (invoice.amount_fiat / effective_rate)
             invoice.amount_crypto = round(converted, 8)
 
             # rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
@@ -414,10 +415,10 @@ class Invoice(db.Model):
 
                 # recalc crypto amount for the new crypto and fiat amount
                 base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
-                effective_rate = base_rate / (1 - exch_rate)
+                effective_rate = base_rate * fee_to_rate
                 invoice.exchange_rate = effective_rate
 
-                converted = (invoice.amount_fiat * effective_rate)
+                converted = (invoice.amount_fiat / effective_rate)
                 invoice.amount_crypto = round(converted, 8)
 
                 # rate = ExchangeRate.get(invoice.fiat, invoice.crypto)
@@ -457,10 +458,10 @@ class Invoice(db.Model):
             # )
 
             base_rate = transferra.get_rate(fiat=invoice.fiat, crypto=invoice.crypto)
-            effective_rate = base_rate / (1 - exch_rate)
+            effective_rate = base_rate * fee_to_rate
             invoice.exchange_rate = effective_rate
 
-            converted = (invoice.amount_fiat * effective_rate)
+            converted = (invoice.amount_fiat / effective_rate)
             invoice.amount_crypto = round(converted, 8)
 
             invoice.addr = crypto.mkaddr(details={"value": invoice.amount_crypto})
